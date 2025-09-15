@@ -1,3 +1,19 @@
+# -*- coding: utf-8 -*-
+"""
+Undirected Graph Implementation
+
+This module provides an implementation of an undirected graph data structure
+using an adjacency list representation. It includes classes for representing
+nodes and edges, as well as exceptions for handling graph operations.
+
+The UndirectedGraph class supports operations such as adding/removing nodes
+and edges, checking for existence of nodes and edges, and iterating over
+graph elements. It also provides utility methods for getting node degrees,
+counting nodes and edges, and creating copies of the graph.
+
+Url: https://github.com/SekaiArendelle/undirected_graph_py.git
+"""
+
 import copy
 from typing import Generic, TypeVar, Dict, Iterator, Tuple, Set
 
