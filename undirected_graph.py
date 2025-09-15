@@ -1,210 +1,333 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import annotations
-from typing import (
-    Dict,
-    Set,
-    Iterable,
-    Iterator,
-    Tuple,
-    Any,
-    Optional,
-)
+import copy
+from typing import Generic, TypeVar, Dict, Iterator, Tuple, Set
 
 
-class UndirectedGraph:
-    """
-    A minimal yet full-featured container for an *undirected* graph.
+class InvalidEdgeError(Exception):
+    """Exception raised when trying to add an edge that already exists in the graph."""
 
-    The graph is represented as an adjacency list:
-        node -> {neighbor₁, neighbor₂, ...}
+    __err_msg: str
 
-    Key points
-    ----------
-    *  Adding an edge (u, v) automatically adds the reverse edge (v, u).
-    *  Nodes can be any hashable Python object.
-    *  All operations run in amortised O(1) time except iteration, which is O(V+E).
+    def __init__(self, err_msg: str) -> None:
+        self.__err_msg = err_msg
 
-    Examples
-    --------
-    >>> g = UndirectedGraph()
-    >>> g.add_edge(1, 2)
-    >>> g.add_edge(2, 3)
-    >>> list(g.nodes())
-    [1, 2, 3]
-    >>> list(g.neighbors(2))
-    [1, 3]
-    >>> g.degree(2)
-    2
-    >>> 2 in g
-    True
-    >>> g.remove_node(2)
-    >>> list(g.edges())
-    []
-    """
+    def __str__(self) -> str:
+        return self.__err_msg
 
-    # -------------------------------------------------------------------------
-    # Construction / Deserialization
-    # -------------------------------------------------------------------------
 
-    def __init__(self, edges: Optional[Iterable[Tuple[Any, Any]]] = None) -> None:
+class NodeExistsError(Exception):
+    """Exception raised when trying to add a node that already exists in the graph."""
+
+    __err_msg: str
+
+    def __init__(self, err_msg: str) -> None:
+        self.__err_msg = err_msg
+
+    def __str__(self) -> str:
+        return self.__err_msg
+
+
+class NodeNotExistsError(Exception):
+    """Exception raised when trying to access a node that doesn't exist in the graph."""
+
+    __err_msg: str
+
+    def __init__(self, err_msg: str) -> None:
+        self.__err_msg = err_msg
+
+    def __str__(self) -> str:
+        return self.__err_msg
+
+
+class EdgeExistsError(Exception):
+    """Exception raised when trying to add an edge that already exists in the graph."""
+
+    __err_msg: str
+
+    def __init__(self, err_msg: str) -> None:
+        self.__err_msg = err_msg
+
+    def __str__(self) -> str:
+        return self.__err_msg
+
+
+class EdgeNotExistsError(Exception):
+    """Exception raised when trying to access an edge that doesn't exist in the graph."""
+
+    __err_msg: str
+
+    def __init__(self, err_msg: str) -> None:
+        self.__err_msg = err_msg
+
+    def __str__(self) -> str:
+        return self.__err_msg
+
+
+_Node = TypeVar("_Node")
+_Edge = TypeVar("_Edge")
+
+
+class UndirectedGraph(Generic[_Node, _Edge]):
+    """An undirected graph implementation using an adjacency list representation."""
+
+    _adjacency_list: Dict[_Node, Dict[_Node, _Edge]]
+    # to speed up calculating counting edges
+    _count_edges: int
+
+    def __init__(self) -> None:
+        """Initialize an empty undirected graph."""
+        self._adjacency_list = {}
+        self._count_edges = 0
+
+    def __contains__(self, _node: _Node) -> bool:
+        """Check if a node exists in the graph.
+
+        Args:
+            node: The node to check for existence
+
+        Returns:
+            True if the node exists in the graph, False otherwise
         """
-        Create a new graph.
-
-        Parameters
-        ----------
-        edges : iterable of (u, v) pairs, optional
-            Initial edges to populate the graph.
-        """
-        self._adj: Dict[Any, Set[Any]] = {}
-        if edges is not None:
-            for u, v in edges:
-                self.add_edge(u, v)
-
-    # -------------------------------------------------------------------------
-    # Dunder helpers
-    # -------------------------------------------------------------------------
-
-    def __contains__(self, node: Any) -> bool:
-        """True if *node* is present."""
-        return node in self._adj
-
-    def __iter__(self) -> Iterator[Any]:
-        """Iterate over all nodes (same as .nodes())."""
-        return iter(self._adj)
+        return _node in self._adjacency_list
 
     def __len__(self) -> int:
-        """Number of nodes."""
-        return len(self._adj)
+        """Get the number of nodes in the graph.
+
+        Returns:
+            The number of nodes in the graph
+        """
+        return len(self._adjacency_list)
 
     def __repr__(self) -> str:
+        """Return a string representation of the graph.
+
+        Returns:
+            A string representation showing the graph's edges
+        """
         cls = self.__class__.__name__
         return f"{cls}({list(self.edges())})"
 
-    # -------------------------------------------------------------------------
-    # Mutators
-    # -------------------------------------------------------------------------
+    def __deepcopy__(self, memo) -> "UndirectedGraph":
+        """Create a deep copy of the graph.
 
-    def add_node(self, node: Any) -> None:
-        """Add an isolated node (idempotent)."""
-        if node not in self._adj:
-            self._adj[node] = set()
+        Args:
+            memo: A dictionary to track already copied objects
 
-    def add_edge(self, u: Any, v: Any) -> None:
+        Returns:
+            A deep copy of the graph
         """
-        Add an undirected edge u-v (idempotent).
-
-        Automatically adds missing endpoints.
-        """
-        self.add_node(u)
-        self.add_node(v)
-        self._adj[u].add(v)
-        self._adj[v].add(u)
-
-    def remove_node(self, node: Any) -> None:
-        """
-        Remove *node* and all incident edges.
-
-        Raises
-        ------
-        KeyError
-            If *node* is not present.
-        """
-        if node not in self._adj:
-            raise KeyError(node)
-
-        # Remove *node* from all neighbours
-        for neighbour in self._adj[node]:
-            self._adj[neighbour].remove(node)
-        del self._adj[node]
-
-    def remove_edge(self, u: Any, v: Any) -> None:
-        """
-        Remove the edge u-v.
-
-        Raises
-        ------
-        KeyError
-            If either endpoint or the edge itself is missing.
-        """
-        try:
-            self._adj[u].remove(v)
-            self._adj[v].remove(u)
-        except KeyError as exc:
-            raise KeyError(f"Edge ({u}, {v}) not found") from exc
-
-    # -------------------------------------------------------------------------
-    # Accessors
-    # -------------------------------------------------------------------------
-
-    def nodes(self) -> Iterator[Any]:
-        """Iterate over all nodes."""
-        return iter(self._adj)
-
-    def edges(self) -> Iterator[Tuple[Any, Any]]:
-        """
-        Iterate over all edges once each (u ≤ v to avoid duplicates).
-
-        Order is deterministic but arbitrary.
-        """
-        seen: Set[Tuple[Any, Any]] = set()
-        for u in self._adj:
-            for v in self._adj[u]:
-                if (v, u) not in seen:
-                    seen.add((u, v))
-                    yield (u, v)
-
-    def neighbors(self, node: Any) -> Iterator[Any]:
-        """Iterate over all neighbours of *node*."""
-        if node not in self._adj:
-            raise KeyError(node)
-        return iter(self._adj[node])
-
-    def degree(self, node: Any) -> int:
-        """Return the degree (number of neighbours) of *node*."""
-        if node not in self._adj:
-            raise KeyError(node)
-        return len(self._adj[node])
-
-    # -------------------------------------------------------------------------
-    # Convenience helpers
-    # -------------------------------------------------------------------------
+        if id(self) in memo:
+            return memo[id(self)]
+        return self.copy()
 
     def copy(self) -> "UndirectedGraph":
-        """Return a shallow copy of the graph."""
-        g = UndirectedGraph()
-        # Deep-copy the sets to keep them independent
-        g._adj = {n: set(neighs) for n, neighs in self._adj.items()}
-        return g
+        """Create a shallow copy of the graph.
+
+        Returns:
+            A shallow copy of the graph
+        """
+        result = UndirectedGraph()
+        result._adjacency_list = copy.deepcopy(self._adjacency_list)
+        result._count_edges = self._count_edges
+        return result
+
+    def swap(self, other: "UndirectedGraph") -> None:
+        """Swap the contents of this graph with another graph.
+
+        Args:
+            other: Another UndirectedGraph instance to swap with
+        """
+        self._adjacency_list, other._adjacency_list = (
+            other._adjacency_list,
+            self._adjacency_list,
+        )
+        self._count_edges, other._count_edges = other._count_edges, self._count_edges
+
+    def empty(self) -> bool:
+        """Check if the graph is empty.
+
+        Returns:
+            True if the graph has no nodes, False otherwise
+        """
+        return self._adjacency_list == {}
+
+    def add_node(self, node: _Node) -> None:
+        """Add a node to the graph.
+
+        Args:
+            _node: The node to add to the graph
+
+        Raises:
+            NodeExistsError: If the node already exists in the graph
+        """
+        if node in self._adjacency_list:
+            raise NodeExistsError(f"Node {node} already exists")
+        self._adjacency_list[node] = {}
+
+    def remove_node(self, node: _Node) -> None:
+        """Remove a node and all its edges from the graph.
+
+        Args:
+            _node: The node to remove from the graph
+
+        Raises:
+            NodeNotExistsError: If the node doesn't exist in the graph
+        """
+        if node not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node} does not exist")
+
+        for neighbor in self._adjacency_list[node]:
+            self._adjacency_list[neighbor].pop(node)
+        self._count_edges -= len(self._adjacency_list[node])
+        self._adjacency_list.pop(node)
+
+    def construct_edge(self, node1: _Node, node2: _Node, edge: _Edge) -> None:
+        """Add a new edge between two nodes in the graph.
+
+        Args:
+            _node1: The first node
+            _node2: The second node
+            _edge: The edge data to associate with the connection
+
+        Raises:
+            NodeNotExistsError: If either node doesn't exist in the graph
+            EdgeExistsError: If an edge already exists between these nodes
+        """
+        if node1 not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node1} does not exist")
+        if node2 not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node2} does not exist")
+        if node2 in self._adjacency_list[node1]:
+            raise EdgeExistsError(f"Edge {node1} <-> {node2} already exists")
+        assert node1 not in self._adjacency_list[node2]
+        if node1 == node2:
+            raise InvalidEdgeError("Cannot add self-loop edge")
+
+        self._adjacency_list[node1][node2] = edge
+        self._adjacency_list[node2][node1] = edge
+
+        self._count_edges += 1
+
+    def assign_edge(self, node1: _Node, node2: _Node, edge: _Edge) -> None:
+        """Update the edge data between two existing nodes.
+
+        Args:
+            _node1: The first node
+            _node2: The second node
+            _edge: The new edge data to associate with the connection
+
+        Raises:
+            NodeNotExistsError: If either node doesn't exist in the graph
+            EdgeNotExistsError: If no edge exists between these nodes
+        """
+        if node1 not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node1} does not exist")
+        if node2 not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node2} does not exist")
+        if node1 not in self._adjacency_list[node2]:
+            raise EdgeNotExistsError(f"Edge {node1} <-> {node2} does not exist")
+        assert node2 in self._adjacency_list[node1]
+        if node1 == node2:
+            raise EdgeExistsError(f"Edge {node1} <-> {node2} already exists")
+
+        self._adjacency_list[node1][node2] = edge
+        self._adjacency_list[node2][node1] = edge
+
+    def remove_edge(self, node1: _Node, node2: _Node) -> None:
+        """Remove an edge between two nodes.
+
+        Args:
+            _node1: The first node
+            _node2: The second node
+
+        Raises:
+            NodeNotExistsError: If either node doesn't exist in the graph
+            EdgeNotExistsError: If no edge exists between these nodes
+        """
+        if node1 not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node1} does not exist")
+        if node2 not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node2} does not exist")
+        if node1 not in self._adjacency_list[node2]:
+            raise EdgeNotExistsError(f"Edge {node1} <-> {node2} does not exist")
+        assert node2 in self._adjacency_list[node1]
+        assert node1 != node2
+
+        self._adjacency_list[node1].pop(node2)
+        self._adjacency_list[node2].pop(node1)
+
+        self._count_edges -= 1
+
+    def has_edge(self, node1: _Node, node2: _Node) -> bool:
+        """Check if edge exists"""
+        return node1 in self._adjacency_list and node2 in self._adjacency_list[node1]
 
     def clear(self) -> None:
-        """Remove all nodes and edges."""
-        self._adj.clear()
+        """Remove all nodes and edges from the graph."""
+        self._adjacency_list.clear()
+        self._count_edges = 0
 
-    # -------------------------------------------------------------------------
-    # Serialization helpers
-    # -------------------------------------------------------------------------
+    def count_nodes(self) -> int:
+        """Count the number of nodes in the graph.
 
-    def to_dict(self) -> Dict[Any, Set[Any]]:
+        Returns:
+            The number of nodes in the graph
         """
-        Return a copy of the underlying adjacency list.
+        return len(self._adjacency_list)
 
-        Useful for JSON serialization after converting sets to lists.
-        """
-        return {n: set(neighs) for n, neighs in self._adj.items()}
+    def count_edges(self) -> int:
+        """Count the number of edges in the graph.
 
-    @classmethod
-    def from_dict(cls, data: Dict[Any, Iterable[Any]]) -> "UndirectedGraph":
+        Returns:
+            The number of edges in the graph
         """
-        Re-create a graph from an adjacency-list-like dictionary.
+        assert self._count_edges >= 0
+        return self._count_edges
 
-        Parameters
-        ----------
-        data : dict
-            {node: iterable_of_neighbours}
+    def degree(self, node: _Node) -> int:
+        """Get the degree of a node (number of edges connected to it).
+
+        Args:
+            _node: The node to get the degree for
+
+        Returns:
+            The degree of the node
+
+        Raises:
+            NodeNotExistsError: If the node doesn't exist in the graph
         """
-        g = cls()
-        for node, neighbours in data.items():
-            for neighbour in neighbours:
-                g.add_edge(node, neighbour)
-        return g
+        if node not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node} not in graph")
+
+        return len(self._adjacency_list[node])
+
+    def nodes(self) -> Iterator[_Node]:
+        """Get an iterator over all nodes in the graph.
+
+        Returns:
+            An iterator over all nodes
+        """
+        return iter(self._adjacency_list.keys())
+
+    def edges(self) -> Iterator[Tuple[_Node, _Node, _Edge]]:
+        """Get an iterator over all edges in the graph.
+
+        Returns:
+            An iterator over tuples of (node1, node2, edge_data)
+        """
+        _seen: Set[Tuple[_Node, _Node]] = set()
+        for _node in self._adjacency_list.keys():
+            for _neighbor in self._adjacency_list[_node]:
+                if (_node, _neighbor) not in _seen and (_neighbor, _node) not in _seen:
+                    _seen.add((_node, _neighbor))
+                    yield _node, _neighbor, self._adjacency_list[_node][_neighbor]
+
+    def neighbors(self, node: _Node) -> Iterator[_Node]:
+        """Get an iterator over the neighbors of a node.
+
+        Args:
+            node: The node to get neighbors for
+
+        Returns:
+            An iterator over neighboring nodes
+        """
+        return iter(self._adjacency_list[node])
