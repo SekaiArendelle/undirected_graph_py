@@ -78,7 +78,7 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         self._adjacency_list = {}
         self._count_edges = 0
 
-    def __contains__(self, _node: _Node) -> bool:
+    def __contains__(self, node: _Node) -> bool:
         """Check if a node exists in the graph.
 
         Args:
@@ -87,7 +87,7 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         Returns:
             True if the node exists in the graph, False otherwise
         """
-        return _node in self._adjacency_list
+        return node in self._adjacency_list
 
     def __len__(self) -> int:
         """Get the number of nodes in the graph.
@@ -154,7 +154,7 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         """Add a node to the graph.
 
         Args:
-            _node: The node to add to the graph
+            node: The node to add to the graph
 
         Raises:
             NodeExistsError: If the node already exists in the graph
@@ -167,7 +167,7 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         """Remove a node and all its edges from the graph.
 
         Args:
-            _node: The node to remove from the graph
+            node: The node to remove from the graph
 
         Raises:
             NodeNotExistsError: If the node doesn't exist in the graph
@@ -184,13 +184,14 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         """Add a new edge between two nodes in the graph.
 
         Args:
-            _node1: The first node
-            _node2: The second node
-            _edge: The edge data to associate with the connection
+            node1: The first node
+            node2: The second node
+            edge: The edge data to associate with the connection
 
         Raises:
             NodeNotExistsError: If either node doesn't exist in the graph
             EdgeExistsError: If an edge already exists between these nodes
+            InvalidEdgeError: If the node1 and node2 are the same node
         """
         if node1 not in self._adjacency_list:
             raise NodeNotExistsError(f"Node {node1} does not exist")
@@ -211,13 +212,14 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         """Update the edge data between two existing nodes.
 
         Args:
-            _node1: The first node
-            _node2: The second node
-            _edge: The new edge data to associate with the connection
+            node1: The first node
+            node2: The second node
+            edge: The new edge data to associate with the connection
 
         Raises:
             NodeNotExistsError: If either node doesn't exist in the graph
             EdgeNotExistsError: If no edge exists between these nodes
+            InvalidEdgeError: If the node1 and node2 are the same node
         """
         if node1 not in self._adjacency_list:
             raise NodeNotExistsError(f"Node {node1} does not exist")
@@ -236,8 +238,8 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         """Remove an edge between two nodes.
 
         Args:
-            _node1: The first node
-            _node2: The second node
+            node1: The first node
+            node2: The second node
 
         Raises:
             NodeNotExistsError: If either node doesn't exist in the graph
@@ -258,7 +260,15 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         self._count_edges -= 1
 
     def has_edge(self, node1: _Node, node2: _Node) -> bool:
-        """Check if edge exists"""
+        """Check if edge exists between two nodes.
+
+        Args:
+            node1: The first node
+            node2: The second node
+
+        Returns:
+            True if edge exists between node1 and node2, False otherwise
+        """
         return node1 in self._adjacency_list and node2 in self._adjacency_list[node1]
 
     def clear(self) -> None:
@@ -287,7 +297,7 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         """Get the degree of a node (number of edges connected to it).
 
         Args:
-            _node: The node to get the degree for
+            node: The node to get the degree for
 
         Returns:
             The degree of the node
