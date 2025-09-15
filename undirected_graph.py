@@ -227,7 +227,7 @@ class UndirectedGraph(Generic[_Node, _Edge]):
             raise EdgeNotExistsError(f"Edge {node1} <-> {node2} does not exist")
         assert node2 in self._adjacency_list[node1]
         if node1 == node2:
-            raise EdgeExistsError(f"Edge {node1} <-> {node2} already exists")
+            raise InvalidEdgeError(f"Edge {node1} <-> {node2} already exists")
 
         self._adjacency_list[node1][node2] = edge
         self._adjacency_list[node2][node1] = edge
