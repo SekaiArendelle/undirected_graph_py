@@ -8,13 +8,15 @@ from undirected_graph import (
     NodeExistsError,
     NodeNotExistsError,
     EdgeNotExistsError,
+    InvalidEdgeError,
 )
 
 
 class TestUndirectedGraph(unittest.TestCase):
     """Test cases for every public method of UndirectedGraph."""
 
-    def _populate_triangle(self) -> UndirectedGraph:
+    @staticmethod
+    def _populate_triangle() -> UndirectedGraph:
         """Add the edges of a 3-cycle (triangle).
 
         Returns:
@@ -184,6 +186,37 @@ class TestUndirectedGraph(unittest.TestCase):
         g.swap(g2)
         self.assertTrue(g2.empty())
         self.assertFalse(g.empty())
+
+    def test_has_edge(self):
+        """Test checking whether an edge exists."""
+        g = self._populate_triangle()
+        self.assertTrue(g.has_edge(1, 2))
+
+    def test_count_edges(self):
+        """Test counting the number of edges."""
+        g = self._populate_triangle()
+        self.assertEqual(g.count_edges(), 3)
+
+    def test_count_nodes(self):
+        """Test counting the number of nodes."""
+        g = self._populate_triangle()
+        self.assertEqual(g.count_nodes(), 3)
+
+    def test_no_self_loops(self):
+        """Test that self-loops are not allowed."""
+        g = UndirectedGraph()
+        g.add_node(1)
+        try:
+            g.construct_edge(1, 1, 1)
+        except InvalidEdgeError:
+            pass
+        else:
+            assert False
+
+    def test_repr(self):
+        """Test that the representation of the graph is correct."""
+        g = self._populate_triangle()
+        self.assertEqual(repr(g), "UndirectedGraph([(1, 2, 1), (1, 3, 1), (2, 3, 1)])")
 
 
 if __name__ == "__main__":

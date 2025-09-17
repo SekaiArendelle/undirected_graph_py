@@ -1,0 +1,8 @@
+[run]
+source = undirected_graph
+
+[report]
+show_missing = False
+
+[json]
+output = coverage.json
