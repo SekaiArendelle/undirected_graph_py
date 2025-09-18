@@ -33,13 +33,12 @@ class TestUndirectedGraph(unittest.TestCase):
 
         return g
 
-
     def test_empty_graph(self):
         """Test that a newly created graph is empty."""
         g = UndirectedGraph()
         self.assertEqual(len(g), 0)
-        self.assertEqual(list(g.nodes()), [])
-        self.assertEqual(list(g.edges()), [])
+        self.assertEqual(g.count_nodes(), 0)
+        self.assertEqual(g.count_edges(), 0)
 
     def test_contains(self):
         """Test the __contains__ method of UndirectedGraph."""
@@ -56,7 +55,6 @@ class TestUndirectedGraph(unittest.TestCase):
         g.add_node("Y")
         g.construct_edge("X", "Y", 1)
         self.assertEqual(len(g), 2)
-
 
     def test_add_node_idempotent(self):
         """Test that adding the same node twice raises NodeExistsError."""
@@ -129,12 +127,8 @@ class TestUndirectedGraph(unittest.TestCase):
 
         g.add_node(1)
         g.add_node(2)
-        try:
+        with self.assertRaises(EdgeNotExistsError):
             g.remove_edge(1, 2)
-        except EdgeNotExistsError:
-            pass
-        else:
-            assert False
 
     def test_neighbors(self):
         """Test retrieving the neighbors of a node."""
@@ -145,7 +139,7 @@ class TestUndirectedGraph(unittest.TestCase):
         """Test that accessing neighbors of a non-existent node raises KeyError."""
         g = UndirectedGraph()
 
-        with self.assertRaises(KeyError):
+        with self.assertRaises(NodeNotExistsError):
             list(g.neighbors("no-such-node"))
 
     def test_degree(self):
@@ -156,7 +150,7 @@ class TestUndirectedGraph(unittest.TestCase):
     def test_edges_unique(self):
         """Test that edges are unique and not duplicated."""
         g = self._populate_triangle()
-        edges = list(g.edges())
+        edges = list(g)
         self.assertEqual(len(edges), 3)
         # Ensure no duplicates such as (1,2) and (2,1)
         self.assertEqual(len(set(edges)), 3)
@@ -206,17 +200,40 @@ class TestUndirectedGraph(unittest.TestCase):
         """Test that self-loops are not allowed."""
         g = UndirectedGraph()
         g.add_node(1)
-        try:
+        with self.assertRaises(InvalidEdgeError):
             g.construct_edge(1, 1, 1)
-        except InvalidEdgeError:
-            pass
-        else:
-            assert False
 
     def test_repr(self):
         """Test that the representation of the graph is correct."""
         g = self._populate_triangle()
         self.assertEqual(repr(g), "UndirectedGraph([(1, 2, 1), (1, 3, 1), (2, 3, 1)])")
+
+    def test_insertion_order_iter(self):
+        """Test retrieving all nodes in the graph."""
+        g = self._populate_triangle()
+        self.assertEqual(set(g.insertion_order_node_iter()), {1, 2, 3})
+
+    def test_bfs_iter(self):
+        """Test iterating over all edges in the graph using breadth-first search."""
+        g = self._populate_triangle()
+        g.add_node(4)
+        g.construct_edge(2, 4, 1)
+        g.construct_edge(3, 4, 1)
+        g.add_node(5)
+        result = list(g.bfs_node_iter())
+        expect = [1, 2, 3, 4, 5]
+        self.assertEqual(result, expect)
+
+    def test_dfs_iter(self):
+        """Test iterating over all edges in the graph using breadth-first search."""
+        g = self._populate_triangle()
+        g.add_node(4)
+        g.construct_edge(2, 4, 1)
+        g.construct_edge(3, 4, 1)
+        g.add_node(5)
+        result = list(g.dfs_node_iter())
+        expect = [1, 3, 4, 2, 5]
+        self.assertEqual(result, expect)
 
 
 if __name__ == "__main__":

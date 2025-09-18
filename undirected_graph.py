@@ -15,7 +15,89 @@ Url: https://github.com/SekaiArendelle/undirected_graph_py.git
 """
 
 import copy
-from typing import Generic, TypeVar, Dict, Iterator, Tuple, Set
+from collections import deque
+from collections.abc import Hashable
+from typing import Generic, TypeVar, Dict, Iterator, Tuple, Set, Deque, Any
+
+
+_Ts = TypeVar("_Ts")
+
+
+class _Stack(Generic[_Ts]):
+    """
+    A simple stack implementation using deque as backend.
+
+    This is a private helper class used internally by the graph implementation
+    for depth-first search traversal.
+    """
+
+    __data: Deque[_Ts]
+
+    def __init__(self, *args: _Ts) -> None:
+        """Initialize the stack with optional initial data."""
+        self.__data = deque(args)
+
+    def __len__(self) -> int:
+        """Get the number of elements in the stack."""
+        return len(self.__data)
+
+    def empty(self) -> bool:
+        """Check if the stack is empty."""
+        return len(self.__data) == 0
+
+    def push(self, data: _Ts) -> None:
+        """Push an element onto the top of the stack."""
+        self.__data.append(data)
+
+    def top(self) -> _Ts:
+        """Get the element at the top of the stack without removing it."""
+        return self.__data[-1]
+
+    def pop(self) -> _Ts:
+        """Remove and return the element at the top of the stack."""
+        return self.__data.pop()
+
+
+_Tq = TypeVar("_Tq")
+
+
+class _Queue(Generic[_Tq]):
+    """
+    A simple queue implementation using deque as backend.
+
+    This is a private helper class used internally by the graph implementation
+    for breadth-first search traversal.
+    """
+
+    __data: Deque[_Tq]
+
+    def __init__(self, *args: _Tq) -> None:
+        """Initialize the queue with optional initial data."""
+        self.__data = deque(args)
+
+    def __len__(self) -> int:
+        """Get the number of elements in the queue."""
+        return len(self.__data)
+
+    def empty(self) -> bool:
+        """Check if the queue is empty."""
+        return len(self.__data) == 0
+
+    def push(self, data: _Tq) -> None:
+        """Add an element to the back of the queue."""
+        self.__data.append(data)
+
+    def pop(self) -> _Tq:
+        """Remove and return the element from the front of the queue."""
+        return self.__data.popleft()
+
+    def front(self) -> _Tq:
+        """Get the element at the front of the queue without removing it."""
+        return self.__data[0]
+
+    def back(self) -> _Tq:
+        """Get the element at the back of the queue without removing it."""
+        return self.__data[-1]
 
 
 class InvalidEdgeError(Exception):
@@ -24,9 +106,11 @@ class InvalidEdgeError(Exception):
     __err_msg: str
 
     def __init__(self, err_msg: str) -> None:
+        """Initialize the exception with an error message."""
         self.__err_msg = err_msg
 
     def __str__(self) -> str:
+        """Return the error message as string representation."""
         return self.__err_msg
 
 
@@ -36,9 +120,11 @@ class NodeExistsError(Exception):
     __err_msg: str
 
     def __init__(self, err_msg: str) -> None:
+        """Initialize the exception with an error message."""
         self.__err_msg = err_msg
 
     def __str__(self) -> str:
+        """Return the error message as string representation."""
         return self.__err_msg
 
 
@@ -48,9 +134,11 @@ class NodeNotExistsError(Exception):
     __err_msg: str
 
     def __init__(self, err_msg: str) -> None:
+        """Initialize the exception with an error message."""
         self.__err_msg = err_msg
 
     def __str__(self) -> str:
+        """Return the error message as string representation."""
         return self.__err_msg
 
 
@@ -60,9 +148,11 @@ class EdgeExistsError(Exception):
     __err_msg: str
 
     def __init__(self, err_msg: str) -> None:
+        """Initialize the exception with an error message."""
         self.__err_msg = err_msg
 
     def __str__(self) -> str:
+        """Return the error message as string representation."""
         return self.__err_msg
 
 
@@ -72,14 +162,16 @@ class EdgeNotExistsError(Exception):
     __err_msg: str
 
     def __init__(self, err_msg: str) -> None:
+        """Initialize the exception with an error message."""
         self.__err_msg = err_msg
 
     def __str__(self) -> str:
+        """Return the error message as string representation."""
         return self.__err_msg
 
 
-_Node = TypeVar("_Node")
-_Edge = TypeVar("_Edge")
+_Node = TypeVar("_Node", bound=Hashable)
+_Edge = TypeVar("_Edge", bound=Hashable)
 
 
 class UndirectedGraph(Generic[_Node, _Edge]):
@@ -113,6 +205,20 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         """
         return len(self._adjacency_list)
 
+    def __iter__(self) -> Iterator[Tuple[_Node, _Node, _Edge]]:
+        """Get an iterator over all edges in the graph.
+
+        Returns:
+            An iterator over tuples of (node1, node2, edge_data)
+        """
+        visited_edges: Set[Tuple[_Node, _Node]] = set()
+        for _node in self._adjacency_list.keys():
+            for _neighbor in self._adjacency_list[_node]:
+                if (_node, _neighbor) not in visited_edges:
+                    visited_edges.add((_node, _neighbor))
+                    visited_edges.add((_neighbor, _node))
+                    yield _node, _neighbor, self._adjacency_list[_node][_neighbor]
+
     def __repr__(self) -> str:
         """Return a string representation of the graph.
 
@@ -120,9 +226,9 @@ class UndirectedGraph(Generic[_Node, _Edge]):
             A string representation showing the graph's edges
         """
         cls = self.__class__.__name__
-        return f"{cls}({list(self.edges())})"
+        return f"{cls}({list(self.__iter__())})"
 
-    def __deepcopy__(self, memo) -> "UndirectedGraph":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "UndirectedGraph[_Node, _Edge]":
         """Create a deep copy of the graph.
 
         Args:
@@ -135,28 +241,29 @@ class UndirectedGraph(Generic[_Node, _Edge]):
             return memo[id(self)]
         return self.copy()
 
-    def copy(self) -> "UndirectedGraph":
+    def copy(self) -> "UndirectedGraph[_Node, _Edge]":
         """Create a shallow copy of the graph.
 
         Returns:
             A shallow copy of the graph
         """
-        result = UndirectedGraph()
+        result: UndirectedGraph[_Node, _Edge] = UndirectedGraph()
         result._adjacency_list = copy.deepcopy(self._adjacency_list)
         result._count_edges = self._count_edges
         return result
 
-    def swap(self, other: "UndirectedGraph") -> None:
+    def swap(self, other: "UndirectedGraph[_Node, _Edge]") -> None:
         """Swap the contents of this graph with another graph.
 
         Args:
             other: Another UndirectedGraph instance to swap with
         """
-        self._adjacency_list, other._adjacency_list = (
-            other._adjacency_list,
-            self._adjacency_list,
-        )
-        self._count_edges, other._count_edges = other._count_edges, self._count_edges
+        tmp_adjacency_list = self._adjacency_list
+        tmp_count_edges = self._count_edges
+        self._adjacency_list = other._adjacency_list
+        self._count_edges = other._count_edges
+        other._adjacency_list = tmp_adjacency_list
+        other._count_edges = tmp_count_edges
 
     def empty(self) -> bool:
         """Check if the graph is empty.
@@ -245,7 +352,7 @@ class UndirectedGraph(Generic[_Node, _Edge]):
             raise EdgeNotExistsError(f"Edge {node1} <-> {node2} does not exist")
         assert node2 in self._adjacency_list[node1]
         if node1 == node2:
-            raise InvalidEdgeError(f"Edge {node1} <-> {node2} already exists")
+            raise InvalidEdgeError("Cannot assign edge to self-loop edge")
 
         self._adjacency_list[node1][node2] = edge
         self._adjacency_list[node2][node1] = edge
@@ -268,7 +375,8 @@ class UndirectedGraph(Generic[_Node, _Edge]):
         if node1 not in self._adjacency_list[node2]:
             raise EdgeNotExistsError(f"Edge {node1} <-> {node2} does not exist")
         assert node2 in self._adjacency_list[node1]
-        assert node1 != node2
+        if node1 == node2:
+            raise InvalidEdgeError("Cannot remove self-loop edge")
 
         self._adjacency_list[node1].pop(node2)
         self._adjacency_list[node2].pop(node1)
@@ -326,27 +434,6 @@ class UndirectedGraph(Generic[_Node, _Edge]):
 
         return len(self._adjacency_list[node])
 
-    def nodes(self) -> Iterator[_Node]:
-        """Get an iterator over all nodes in the graph.
-
-        Returns:
-            An iterator over all nodes
-        """
-        return iter(self._adjacency_list.keys())
-
-    def edges(self) -> Iterator[Tuple[_Node, _Node, _Edge]]:
-        """Get an iterator over all edges in the graph.
-
-        Returns:
-            An iterator over tuples of (node1, node2, edge_data)
-        """
-        _seen: Set[Tuple[_Node, _Node]] = set()
-        for _node in self._adjacency_list.keys():
-            for _neighbor in self._adjacency_list[_node]:
-                if (_node, _neighbor) not in _seen and (_neighbor, _node) not in _seen:
-                    _seen.add((_node, _neighbor))
-                    yield _node, _neighbor, self._adjacency_list[_node][_neighbor]
-
     def neighbors(self, node: _Node) -> Iterator[_Node]:
         """Get an iterator over the neighbors of a node.
 
@@ -355,5 +442,79 @@ class UndirectedGraph(Generic[_Node, _Edge]):
 
         Returns:
             An iterator over neighboring nodes
+
+        Raises:
+            NodeNotExistsError: If the node doesn't exist in the graph
         """
+        if node not in self._adjacency_list:
+            raise NodeNotExistsError(f"Node {node} does not exist")
+
         return iter(self._adjacency_list[node])
+
+    def insertion_order_node_iter(self) -> Iterator[_Node]:
+        """Iterate over all nodes in the graph in insertion order.
+
+        Returns:
+            An iterator over all nodes in the graph
+        """
+        return iter(self._adjacency_list)
+
+    def dfs_node_iter(self) -> Iterator[_Node]:
+        """Iterate over all nodes in the graph using depth-first search.
+
+        Returns:
+            An iterator over nodes in DFS order
+        """
+        if len(self._adjacency_list) == 0:
+            return
+
+        visited_nodes: Set[_Node] = set()
+
+        for root in self._adjacency_list:
+            if root in visited_nodes:
+                continue
+
+            stack: _Stack[_Node] = _Stack(root)
+
+            while stack.empty() is False:
+                current_node = stack.pop()
+
+                if current_node in visited_nodes:
+                    continue
+
+                visited_nodes.add(current_node)
+                yield current_node
+
+                for neighbor in self._adjacency_list[current_node]:
+                    if neighbor not in visited_nodes:
+                        stack.push(neighbor)
+
+    def bfs_node_iter(self) -> Iterator[_Node]:
+        """Iterate over all nodes in the graph using breadth-first search.
+
+        Returns:
+            An iterator over nodes in BFS order
+        """
+        if len(self._adjacency_list) == 0:
+            return
+
+        visited_nodes: Set[_Node] = set()
+
+        for root in self._adjacency_list:
+            if root in visited_nodes:
+                continue
+
+            queue: _Queue[_Node] = _Queue(root)
+
+            while queue.empty() is False:
+                current_node = queue.pop()
+
+                if current_node in visited_nodes:
+                    continue
+
+                visited_nodes.add(current_node)
+                yield current_node
+
+                for neighbor in self._adjacency_list[current_node]:
+                    if neighbor not in visited_nodes:
+                        queue.push(neighbor)
